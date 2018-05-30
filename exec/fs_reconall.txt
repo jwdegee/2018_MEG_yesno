@@ -1,0 +1,6 @@
+#!/bin/bash
+#PBS -lnodes=1:ppn=8:mem32gb -lwalltime=36:00:00 -X
+
+cd degee/MEG/analysis/exec/
+./fs_reconall.sh
+

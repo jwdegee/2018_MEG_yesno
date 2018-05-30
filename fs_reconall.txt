@@ -1,0 +1,27 @@
+#!/bin/bash
+#PBS -lnodes=1:ppn=10:mem64gb -lwalltime=36:00:00 -X
+
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw01.nii.gz -s jw01 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw02.nii.gz -s jw02 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw03.nii.gz -s jw03 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw04.nii.gz -s jw04 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw05.nii.gz -s jw05 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw07.nii.gz -s jw07 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw08.nii.gz -s jw08 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw09.nii.gz -s jw09 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw10.nii.gz -s jw10 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw11.nii.gz -s jw11 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw12.nii.gz -s jw12 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw13.nii.gz -s jw13 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw14.nii.gz -s jw14 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw15.nii.gz -s jw15 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw16.nii.gz -s jw16 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw17.nii.gz -s jw17 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw18.nii.gz -s jw18 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw19.nii.gz -s jw19 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw20.nii.gz -s jw20 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw21.nii.gz -s jw21 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw22.nii.gz -s jw22 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw23.nii.gz -s jw23 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw24.nii.gz -s jw24 -all &
+recon-all -i /home/jwdegee/degee/MEG/data/raw/mri/jw30.nii.gz -s jw30 -all
