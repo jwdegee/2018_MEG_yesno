@@ -11,6 +11,9 @@ import seaborn as sns
 import json
 from joblib import Parallel, delayed
 
+# SET PYMEG_CACHE_DIR=\\discovery1\bcm-neuro-mcginley\JW\cache
+# os.system('SET PYMEG_CACHE_DIR=\\\\discovery1\\bcm-neuro-mcginley\\JW\\cache')
+
 from IPython import embed as shell
 
 import pymeg
@@ -35,8 +38,10 @@ sns.set(style='ticks', font='Arial', font_scale=1, rc={
     'ytick.color':'Black',} )
 sns.plotting_context()
 
-data_folder = '/home/jw/share/data/'
-fig_folder = '/home/jw/share/figures/'
+#data_folder = '/home/jw/share/data/'
+#fig_folder = '/home/jw/share/figures/'
+data_folder = '\\\\discovery1\\bcm-neuro-mcginley\\JW\\data'
+fig_folder = '\\\\discovery1\\bcm-neuro-mcginley\\JW\\figures'
 tfr_params = tfr_params = json.load(open('tfr_params.json'))
 channels = list(pd.read_json("channels.json")[0])
 foi = list(np.arange(4,162,2))
@@ -185,7 +190,7 @@ def select_sensors(subj):
                 tfr_data_condition = tfr_data_stim.loc[tfr_data_stim.index.isin(trial_ind, level='trial'),:].groupby(['freq', 'channel']).mean()
                 
                 # get baseline:
-                baseline = baseline_per_sensor_get(tfr_data_condition, baseline=(-0.3, -0.2))
+                baseline = baseline_per_sensor_get(tfr_data_condition, baseline=(-0.25, -0.15))
                 
                 # apply baseline:
                 tfr_data_condition = baseline_per_sensor_apply(tfr_data_condition, baseline=baseline)
@@ -201,8 +206,8 @@ def select_sensors(subj):
                 tfr_data_condition_b = tfr_data_resp.loc[tfr_data_resp.index.isin(trial_ind_b, level='trial'),:].groupby(['freq', 'channel']).mean()
                 
                 # get baseline:
-                baseline_a = baseline_per_sensor_get(tfr_data_stim.loc[tfr_data_stim.index.isin(trial_ind_a, level='trial'),:].groupby(['freq', 'channel']).mean(), baseline=(-0.3, -0.2))
-                baseline_b = baseline_per_sensor_get(tfr_data_stim.loc[tfr_data_stim.index.isin(trial_ind_b, level='trial'),:].groupby(['freq', 'channel']).mean(), baseline=(-0.3, -0.2))
+                baseline_a = baseline_per_sensor_get(tfr_data_stim.loc[tfr_data_stim.index.isin(trial_ind_a, level='trial'),:].groupby(['freq', 'channel']).mean(), baseline=(-0.25, -0.15))
+                baseline_b = baseline_per_sensor_get(tfr_data_stim.loc[tfr_data_stim.index.isin(trial_ind_b, level='trial'),:].groupby(['freq', 'channel']).mean(), baseline=(-0.25, -0.15))
                 
                 # apply baseline and make contast:
                 tfr_data_condition = baseline_per_sensor_apply(tfr_data_condition_a, baseline=baseline_a) - \
@@ -281,8 +286,8 @@ def make_tfr_contrasts(subj):
                 tfr_data_resp = pymeg.tfr.get_tfrs([tfr_filename_resp], freq=(foi[0], foi[-1]), channel=sensors, tmin=-0.9, tmax=0.4, baseline=None)
                 
                 # collapse data across trial types:
-                # for n in [0,1,4]:
-                for n in [0]:
+                for n in [0,1,4]:
+                # for n in [0]:
                     for c in ['all', 'hit', 'fa', 'miss', 'cr', 'left', 'right', 'pupil_h', 'pupil_l']:
                         
                         # get condition indices:
@@ -312,7 +317,7 @@ def make_tfr_contrasts(subj):
                             tfr_data_resp_condition = tfr_data_resp_condition.loc[tfr_data_resp_condition.index.isin(best_sensors, level='channel'),:]
                             
                             # get baseline:
-                            baseline = baseline_per_sensor_get(tfr_data_stim_condition, baseline=(-0.3, -0.2))
+                            baseline = baseline_per_sensor_get(tfr_data_stim_condition, baseline=(-0.25, -0.15))
                             
                             # apply baseline, and collapse across sensors:
                             tfr_data_stim_condition = baseline_per_sensor_apply(tfr_data_stim_condition, baseline=baseline).groupby(['freq']).mean()
@@ -331,229 +336,231 @@ def make_tfr_contrasts(subj):
                             # cax = ax.pcolormesh(times, freqs, X, vmin=-15, vmax=15, cmap='jet')
                             # fig.savefig('test.pdf')
 
-pick_channels = dict(
-                ant=lambda x: [ch for ch in x if ch.startswith('MLC') or ch.startswith('MRC') or ch.startswith('MLF') or ch.startswith('MRF') or ch.startswith('MZC') or ch.startswith('MZF') \
-                                              or (ch in ['MLT{}-3705'.format(c) for c in [67, 13, 23, 33, 12, 22, 42, 51, 11, 32, 41, 21, 31]]) \
-                                              or (ch in ['MRT{}-3705'.format(c) for c in [67, 13, 23, 33, 12, 22, 42, 51, 11, 32, 41, 21, 31]])],
-                pos=lambda x: [ch for ch in x if ch.startswith('MLO') or ch.startswith('MRO') or ch.startswith('MLP') or ch.startswith('MRP') or ch.startswith('MZO') or ch.startswith('MZP') \
-                                              or (ch in ['MLT{}-3705'.format(c) for c in [14, 24, 34, 43, 52, 15, 25, 35, 44, 53, 16, 26, 36, 45, 54, 27, 37, 46, 55, 47, 56, 57]]) \
-                                              or (ch in ['MRT{}-3705'.format(c) for c in [14, 24, 34, 43, 52, 15, 25, 35, 44, 53, 16, 26, 36, 45, 54, 27, 37, 46, 55, 47, 56, 57]])],
-                left=lambda x: [ch for ch in x if ch.startswith('MLO') or ch.startswith('MLP') or ch.startswith('MLT') or ch.startswith('MLC') or ch.startswith('MLF')],
-                right=lambda x: [ch for ch in x if ch.startswith('MRO') or ch.startswith('MRP') or ch.startswith('MRT') or ch.startswith('MRC') or ch.startswith('MRF')],
-                all=lambda x: [ch for ch in x if ch.startswith('M')],
-                occ=lambda x: [ch for ch in x if ch.startswith('MLO') or ch.startswith('MRO')],
-                par=lambda x: [ch for ch in x if ch.startswith('MLP') or ch.startswith('MRP')],
-                cent=lambda x: [ch for ch in x if ch.startswith('MLC') or ch.startswith('MRC') or ch.startswith('MZC')],
-                centr=lambda x: [ch for ch in x if ch.startswith('MRC') or ch.startswith('MRP')],
-                centl=lambda x: [ch for ch in x if ch.startswith('MLC') or ch.startswith('MLP')],
-                frontal=lambda x: [ch for ch in x if ch.startswith('MLF') or ch.startswith('MRF') or ch.startswith('MZF')],
-                temp=lambda x: [ch for ch in x if ch.startswith('MLT') or ch.startswith('MRT')])
+if __name__ == '__main__':
 
-# subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
-subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15',         'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23',]
+    pick_channels = dict(
+                    ant=lambda x: [ch for ch in x if ch.startswith('MLC') or ch.startswith('MRC') or ch.startswith('MLF') or ch.startswith('MRF') or ch.startswith('MZC') or ch.startswith('MZF') \
+                                                  or (ch in ['MLT{}-3705'.format(c) for c in [67, 13, 23, 33, 12, 22, 42, 51, 11, 32, 41, 21, 31]]) \
+                                                  or (ch in ['MRT{}-3705'.format(c) for c in [67, 13, 23, 33, 12, 22, 42, 51, 11, 32, 41, 21, 31]])],
+                    pos=lambda x: [ch for ch in x if ch.startswith('MLO') or ch.startswith('MRO') or ch.startswith('MLP') or ch.startswith('MRP') or ch.startswith('MZO') or ch.startswith('MZP') \
+                                                  or (ch in ['MLT{}-3705'.format(c) for c in [14, 24, 34, 43, 52, 15, 25, 35, 44, 53, 16, 26, 36, 45, 54, 27, 37, 46, 55, 47, 56, 57]]) \
+                                                  or (ch in ['MRT{}-3705'.format(c) for c in [14, 24, 34, 43, 52, 15, 25, 35, 44, 53, 16, 26, 36, 45, 54, 27, 37, 46, 55, 47, 56, 57]])],
+                    left=lambda x: [ch for ch in x if ch.startswith('MLO') or ch.startswith('MLP') or ch.startswith('MLT') or ch.startswith('MLC') or ch.startswith('MLF')],
+                    right=lambda x: [ch for ch in x if ch.startswith('MRO') or ch.startswith('MRP') or ch.startswith('MRT') or ch.startswith('MRC') or ch.startswith('MRF')],
+                    all=lambda x: [ch for ch in x if ch.startswith('M')],
+                    occ=lambda x: [ch for ch in x if ch.startswith('MLO') or ch.startswith('MRO')],
+                    par=lambda x: [ch for ch in x if ch.startswith('MLP') or ch.startswith('MRP')],
+                    cent=lambda x: [ch for ch in x if ch.startswith('MLC') or ch.startswith('MRC') or ch.startswith('MZC')],
+                    centr=lambda x: [ch for ch in x if ch.startswith('MRC') or ch.startswith('MRP')],
+                    centl=lambda x: [ch for ch in x if ch.startswith('MLC') or ch.startswith('MLP')],
+                    frontal=lambda x: [ch for ch in x if ch.startswith('MLF') or ch.startswith('MRF') or ch.startswith('MZF')],
+                    temp=lambda x: [ch for ch in x if ch.startswith('MLT') or ch.startswith('MRT')])
 
-make_contrasts = True
-do_plots = False
+    # subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
+    subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15',         'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23',]
 
-# rt_diffs(subjects)
-if make_contrasts:
-    # n_jobs = 2
-    # _ = Parallel(n_jobs=n_jobs)(delayed(make_tfr_contrasts)(subj) for subj in subjects)
-    
-    # serial:
-    for subj in subjects:
-        print(subj)
-        select_sensors(subj)
-        # make_tfr_contrasts(subj)
+    make_contrasts = False
+    do_plots = True
+
+    # rt_diffs(subjects)
+    if make_contrasts:
+        # n_jobs = 2
+        # _ = Parallel(n_jobs=n_jobs)(delayed(make_tfr_contrasts)(subj) for subj in subjects)
         
-if do_plots:
-    for sens in ['pos', 'lat', 'left', 'right']:
-    # for sens in ['pos']:
-    # for sens in []:
-        # for n in [0,1,4]:
-        for n in [0]:
-        # for n in [0,]:
+        # serial:
+        for subj in subjects:
+            print(subj)
+            select_sensors(subj)
+            make_tfr_contrasts(subj)
             
-            if sens == 'pos':
-                contrasts = ['all', 'stimulus', 'choice_a', 'pupil', 'cor_choice_a_pupil',]
-                # contrasts = ['cor_choice_a_pupil',]
-            else:
-                contrasts = ['hand',]
-            
-            for c in contrasts:
-            # for c in ['all',]:
-                # for perm in [False, True]:
-                for perm in [True]:
-                    
-                    fig = plt.figure(figsize=(4,2))
-                    gs = matplotlib.gridspec.GridSpec(1, 2, width_ratios=[1.25, 1])
-                    
-                    fig_s = plt.figure(figsize=(16,np.ceil(len(subjects)/2.0)))
-                    plot_nr_stim = 1
-                    plot_nr_resp = 2
-                    for a, tl in enumerate(['stim', 'resp',]):
+    if do_plots:
+        for sens in ['pos', 'lat',]:
+        # for sens in ['pos']:
+        # for sens in []:
+            for n in [0,1,4]:
+            # for n in [0]:
+            # for n in [0,]:
+                
+                if sens == 'pos':
+                    contrasts = ['all', 'stimulus', 'choice_a', 'pupil', 'cor_choice_a_pupil',]
+                    # contrasts = ['cor_choice_a_pupil',]
+                else:
+                    contrasts = ['hand',]
+                
+                for c in contrasts:
+                # for c in ['all',]:
+                    # for perm in [False, True]:
+                    for perm in [True]:
                         
-                        tfr_group_a = []
-                        tfr_group_b = []
-                        for i, subj in enumerate(subjects):
+                        fig = plt.figure(figsize=(4,2))
+                        gs = matplotlib.gridspec.GridSpec(1, 2, width_ratios=[1.25, 1])
+                        
+                        fig_s = plt.figure(figsize=(16,np.ceil(len(subjects)/2.0)))
+                        plot_nr_stim = 1
+                        plot_nr_resp = 2
+                        for a, tl in enumerate(['stim', 'resp',]):
                             
-                            trial_types = ['hit', 'fa', 'miss', 'cr', 'right', 'left', 'all', 'pupil_h', 'pupil_l']
-                            if sens == 'lat':
-                                tfrs = []
-                                for tt in trial_types:
-                                    tfr_session = []
-                                    for session in ['A', 'B']:
-                                        try:
-                                            tfr_session.append( pd.read_hdf(os.path.join(data_folder, 'tfr', '{}_{}_{}_{}_{}_{}.hdf'.format('left', tl, subj, n, tt, session)), 'tfr') - \
-                                                                pd.read_hdf(os.path.join(data_folder, 'tfr', '{}_{}_{}_{}_{}_{}.hdf'.format('right', tl, subj, n, tt, session)), 'tfr') )
-                                        except:
-                                            pass
-                                    tfrs.append( pd.concat(tfr_session).groupby('freq').mean() )
-                            else:
-                                tfrs = []
-                                for tt in trial_types:
-                                    tfr_session = []
-                                    for session in ['A', 'B']:
-                                        try:
-                                            tfr_session.append( pd.read_hdf(os.path.join(data_folder, 'tfr', '{}_{}_{}_{}_{}_{}.hdf'.format(sens, tl, subj, n, tt, session)), 'tfr') )
-                                        except:
-                                            pass
-                                    tfrs.append( pd.concat(tfr_session).groupby('freq').mean() )
-                                   
-                            if c == 'all':
-                                # tfr = (tfrs[0]+tfrs[1]+tfrs[2]+tfrs[3]) / 4.0
-                                tfr = tfrs[6]
-                            if c == 'stimulus':
-                                tfr = (tfrs[0]+tfrs[2]) - (tfrs[1]+tfrs[3])   
-                            if c == 'choice_a':
-                                tfr = (tfrs[0]+tfrs[1]) - (tfrs[2]+tfrs[3])    
-                            if c == 'hand':
-                                tfr = tfrs[4]-tfrs[5] 
-                            if c == 'pupil':
-                                tfr = tfrs[6]-tfrs[7]
-                            if c == 'cor_choice_a_pupil':
-                                tfr = (tfrs[0]+tfrs[1]) - (tfrs[2]+tfrs[3])
-                                tfr_b = tfrs[6]-tfrs[7]
-                                tfr_b["subj_idx"] = i
-                                tfr_group_b.append( tfr_b )
+                            tfr_group_a = []
+                            tfr_group_b = []
+                            for i, subj in enumerate(subjects):
                                 
-                            tfr["subj_idx"] = i
-                            tfr_group_a.append( tfr )
-                        tfr = pd.concat(tfr_group_a, axis=0)
-                        tfr = tfr.set_index(['subj_idx'], append=True)
-                        
-                        if 'cor' in c:
-                            tfr_b = pd.concat(tfr_group_b, axis=0)
-                            tfr_b = tfr_b.set_index(['subj_idx'], append=True)
+                                trial_types = ['hit', 'fa', 'miss', 'cr', 'right', 'left', 'all', 'pupil_h', 'pupil_l']
+                                if sens == 'lat':
+                                    tfrs = []
+                                    for tt in trial_types:
+                                        tfr_session = []
+                                        for session in ['A', 'B']:
+                                            try:
+                                                tfr_session.append( pd.read_hdf(os.path.join(data_folder, 'tfr', '{}_{}_{}_{}_{}_{}.hdf'.format('left', tl, subj, n, tt, session)), 'tfr') - \
+                                                                    pd.read_hdf(os.path.join(data_folder, 'tfr', '{}_{}_{}_{}_{}_{}.hdf'.format('right', tl, subj, n, tt, session)), 'tfr') )
+                                            except:
+                                                pass
+                                        tfrs.append( pd.concat(tfr_session).groupby('freq').mean() )
+                                else:
+                                    tfrs = []
+                                    for tt in trial_types:
+                                        tfr_session = []
+                                        for session in ['A', 'B']:
+                                            try:
+                                                tfr_session.append( pd.read_hdf(os.path.join(data_folder, 'tfr', '{}_{}_{}_{}_{}_{}.hdf'.format(sens, tl, subj, n, tt, session)), 'tfr') )
+                                            except:
+                                                pass
+                                        tfrs.append( pd.concat(tfr_session).groupby('freq').mean() )
+                                       
+                                if c == 'all':
+                                    # tfr = (tfrs[0]+tfrs[1]+tfrs[2]+tfrs[3]) / 4.0
+                                    tfr = tfrs[6]
+                                if c == 'stimulus':
+                                    tfr = (tfrs[0]+tfrs[2]) - (tfrs[1]+tfrs[3])   
+                                if c == 'choice_a':
+                                    tfr = (tfrs[0]+tfrs[1]) - (tfrs[2]+tfrs[3])    
+                                if c == 'hand':
+                                    tfr = tfrs[4]-tfrs[5] 
+                                if c == 'pupil':
+                                    tfr = tfrs[6]-tfrs[7]
+                                if c == 'cor_choice_a_pupil':
+                                    tfr = (tfrs[0]+tfrs[1]) - (tfrs[2]+tfrs[3])
+                                    tfr_b = tfrs[6]-tfrs[7]
+                                    tfr_b["subj_idx"] = i
+                                    tfr_group_b.append( tfr_b )
+                                    
+                                tfr["subj_idx"] = i
+                                tfr_group_a.append( tfr )
+                            tfr = pd.concat(tfr_group_a, axis=0)
+                            tfr = tfr.set_index(['subj_idx'], append=True)
                             
-                        # cmap:
-                        # cmap = 'RdYlBu_r'
-                        
-                        from matplotlib.colors import LinearSegmentedColormap
-                        cmap = LinearSegmentedColormap.from_list('custom', ['blue', 'lightblue', 'lightgrey', 'yellow', 'red'], N=100)
-                        
-                        # time:
-                        if tl  == 'stim':
-                            time_cutoff = (-0.1, 1.3)
-                            xlabel = 'Time from stimulus (s)'
-                        if tl  == 'resp':
-                            time_cutoff = (-0.7, 0.2)
-                            xlabel = 'Time from response (s)'
-                
-                        # vmin vmax:
-                        if c == 'all':
-                            vmin, vmax = (-12.5, 12.5)
-                        elif 'cor' in c:
-                            vmin, vmax = (-0.75, 0.75)
-                        else:
-                            vmin, vmax = (-5, 5)
-                
-                        # threshold:
-                        threshold = 0.05
-                        
-                        # plot:
-                        times = np.array(tfr.columns, dtype=float)
-                        freqs = np.array(np.unique(tfr.index.get_level_values('freq')), dtype=float)
-                        time_ind = (times>time_cutoff[0]) & (times<time_cutoff[1])
-                        time_ind = (times>time_cutoff[0]) & (times<time_cutoff[1])
-                        if 'cor' in c:
-                            X_a = np.stack([tfr.loc[tfr.index.isin(i, level='subj_idx'), time_ind].values for i in enumerate(subjects)])
-                            X_b = np.stack([tfr_b.loc[tfr_b.index.isin(i, level='subj_idx'), time_ind].values for i in enumerate(subjects)])
+                            if 'cor' in c:
+                                tfr_b = pd.concat(tfr_group_b, axis=0)
+                                tfr_b = tfr_b.set_index(['subj_idx'], append=True)
+                                
+                            # cmap:
+                            # cmap = 'RdYlBu_r'
                             
-                            X = np.zeros((X_a.shape[1], X_a.shape[2]))
-                            for j in range(X_a.shape[1]):
-                                for k in range(X_a.shape[2]):
-                                    X[j,k] = sp.stats.pearsonr(X_a[:,j,k], X_b[:,j,k])[0]
-                        else:
-                            X = np.stack([tfr.loc[tfr.index.isin(i, level='subj_idx'), time_ind].values for i in enumerate(subjects)])
-                        
-                        # shell()
-                        
-                        # grand average plot:
-                        ax = fig.add_subplot(gs[a]) 
-                        if 'cor' in c:
-                            cax = ax.pcolormesh(times[time_ind], freqs, X, vmin=vmin, vmax=vmax, cmap=cmap)
-                        else:
-                            cax = ax.pcolormesh(times[time_ind], freqs, X.mean(axis=0), vmin=vmin, vmax=vmax, cmap=cmap)
+                            from matplotlib.colors import LinearSegmentedColormap
+                            cmap = LinearSegmentedColormap.from_list('custom', ['blue', 'lightblue', 'lightgrey', 'yellow', 'red'], N=100)
                             
+                            # time:
                             if tl  == 'stim':
-                                test_data = X[:,:,times[time_ind]>0]
-                                times_test_data = times[time_ind][times[time_ind]>0]
+                                time_cutoff = (-0.1, 1.3)
+                                xlabel = 'Time from stimulus (s)'
+                            if tl  == 'resp':
+                                time_cutoff = (-0.7, 0.2)
+                                xlabel = 'Time from response (s)'
+                    
+                            # vmin vmax:
+                            if c == 'all':
+                                vmin, vmax = (-12.5, 12.5)
+                            elif 'cor' in c:
+                                vmin, vmax = (-0.75, 0.75)
                             else:
-                                test_data = X.copy()
-                                times_test_data = times[time_ind]
-                            
-                            T_obs, clusters, cluster_p_values, h0 = mne.stats.permutation_cluster_1samp_test(test_data, threshold={'start':0, 'step':0.2}, 
-                                                                                                            connectivity=None, tail=0, n_permutations=1000, n_jobs=6)
-                            sig = cluster_p_values.reshape((test_data.shape[1], test_data.shape[2]))
-                            
-                            # T_obs2 = sp.stats.ttest_1samp(X, 0)[0]
-                            # fig = plt.figure()
-                            # # plt.pcolormesh(times[time_ind], freqs, sig, vmin=0, vmax=1, cmap=cmap)
-                            # plt.pcolormesh(times[time_ind], freqs, T_obs2, vmin=-10, vmax=10, cmap=cmap)
-                            # fig.savefig('test.pdf')
-                            
-                            ax.contour(times_test_data, freqs, sig, (threshold,), linewidths=0.5, colors=('black'))
-                        ax.axvline(0, ls='--', lw=0.75, color='black',)
-                        if tl  == 'stim':
-                            ax.axvline(1, ls='--', lw=0.75, color='black',)
-                            if (sens == 'pos') & (c == 'all'):
-                                ax.add_patch(matplotlib.patches.Rectangle(xy=(0.3,70), width=0.7, height=30, lw=0.5, ls='--', color='w', fill=False))
-                        if tl  == 'resp':
-                            if (sens == 'lat') & (c == 'hand'):
-                                ax.add_patch(matplotlib.patches.Rectangle(xy=(-0.5,12), width=0.5, height=24, lw=0.5, ls='--', color='w', fill=False))
-                        
-                        ax.set_xlabel(xlabel)
-                        if a == 0:
-                            ax.set_ylabel('Frequency (Hz)')
-                            ax.set_title('{} contrast'.format(c))
-                        elif a == 1:
-                            ax.set_title('N = {}'.format(len(subjects)))
-                            fig.colorbar(cax, ticks=[vmin, 0, vmax])
-                            ax.tick_params(labelleft='off') 
-                        
-                        if not 'cor' in c:
-                        
-                            # separately per subject:
-                            for i in range(len(subjects)):
-                                if tl  == 'stim':
-                                    ax_s = fig_s.add_subplot(np.ceil(len(subjects)/4.0),8,plot_nr_stim)
-                                elif tl  == 'resp':
-                                    ax_s = fig_s.add_subplot(np.ceil(len(subjects)/4.0),8,plot_nr_resp)
-                                cax_s = ax_s.pcolormesh(times[time_ind], freqs, X[i,:,:], vmin=-15, vmax=15, cmap=cmap)
-                                ax_s.axvline(0, ls='--', lw=0.75, color='black',)
-                                if tl  == 'stim':
-                                    ax_s.axvline(1, ls='--', lw=0.75, color='black',)
-                                ax_s.set_title('S{}'.format(subjects[i][-2:]))
-                                ax_s.set_xlabel(xlabel)
-                                ax_s.set_ylabel('Frequency (Hz)')
-                                if tl  == 'stim':
-                                    plot_nr_stim += 2
-                                elif tl  == 'resp':
-                                    plot_nr_resp += 2
+                                vmin, vmax = (-5, 5)
                     
-                    fig.tight_layout()
-                    fig.savefig(os.path.join(fig_folder, 'tfr', '{}_{}_{}_{}.pdf'.format(sens, n, c, 0)))
-                    
-                    fig_s.tight_layout()
-                    fig_s.savefig(os.path.join(fig_folder, 'tfr', 'subjects', '{}_{}_{}.png'.format(sens, n, c)))
+                            # threshold:
+                            threshold = 0.05
+                            
+                            # plot:
+                            times = np.array(tfr.columns, dtype=float)
+                            freqs = np.array(np.unique(tfr.index.get_level_values('freq')), dtype=float)
+                            time_ind = (times>time_cutoff[0]) & (times<time_cutoff[1])
+                            time_ind = (times>time_cutoff[0]) & (times<time_cutoff[1])
+                            if 'cor' in c:
+                                X_a = np.stack([tfr.loc[tfr.index.isin(i, level='subj_idx'), time_ind].values for i in enumerate(subjects)])
+                                X_b = np.stack([tfr_b.loc[tfr_b.index.isin(i, level='subj_idx'), time_ind].values for i in enumerate(subjects)])
+                                
+                                X = np.zeros((X_a.shape[1], X_a.shape[2]))
+                                for j in range(X_a.shape[1]):
+                                    for k in range(X_a.shape[2]):
+                                        X[j,k] = sp.stats.pearsonr(X_a[:,j,k], X_b[:,j,k])[0]
+                            else:
+                                X = np.stack([tfr.loc[tfr.index.isin(i, level='subj_idx'), time_ind].values for i in enumerate(subjects)])
+                            
+                            # shell()
+                            
+                            # grand average plot:
+                            ax = fig.add_subplot(gs[a]) 
+                            if 'cor' in c:
+                                cax = ax.pcolormesh(times[time_ind], freqs, X, vmin=vmin, vmax=vmax, cmap=cmap)
+                            else:
+                                cax = ax.pcolormesh(times[time_ind], freqs, X.mean(axis=0), vmin=vmin, vmax=vmax, cmap=cmap)
+                                
+                                if tl  == 'stim':
+                                    test_data = X[:,:,times[time_ind]>0]
+                                    times_test_data = times[time_ind][times[time_ind]>0]
+                                else:
+                                    test_data = X.copy()
+                                    times_test_data = times[time_ind]
+                                
+                                T_obs, clusters, cluster_p_values, h0 = mne.stats.permutation_cluster_1samp_test(test_data, threshold={'start':0, 'step':0.2}, 
+                                                                                                                connectivity=None, tail=0, n_permutations=1000, n_jobs=6)
+                                sig = cluster_p_values.reshape((test_data.shape[1], test_data.shape[2]))
+                                
+                                # T_obs2 = sp.stats.ttest_1samp(X, 0)[0]
+                                # fig = plt.figure()
+                                # # plt.pcolormesh(times[time_ind], freqs, sig, vmin=0, vmax=1, cmap=cmap)
+                                # plt.pcolormesh(times[time_ind], freqs, T_obs2, vmin=-10, vmax=10, cmap=cmap)
+                                # fig.savefig('test.pdf')
+                                
+                                ax.contour(times_test_data, freqs, sig, (threshold,), linewidths=0.5, colors=('black'))
+                            ax.axvline(0, ls='--', lw=0.75, color='black',)
+                            if tl  == 'stim':
+                                ax.axvline(1, ls='--', lw=0.75, color='black',)
+                                if (sens == 'pos') & (c == 'all'):
+                                    ax.add_patch(matplotlib.patches.Rectangle(xy=(0.3,70), width=0.7, height=30, lw=0.5, ls='--', color='w', fill=False))
+                            if tl  == 'resp':
+                                if (sens == 'lat') & (c == 'hand'):
+                                    ax.add_patch(matplotlib.patches.Rectangle(xy=(-0.5,12), width=0.5, height=24, lw=0.5, ls='--', color='w', fill=False))
+                            
+                            ax.set_xlabel(xlabel)
+                            if a == 0:
+                                ax.set_ylabel('Frequency (Hz)')
+                                ax.set_title('{} contrast'.format(c))
+                            elif a == 1:
+                                ax.set_title('N = {}'.format(len(subjects)))
+                                fig.colorbar(cax, ticks=[vmin, 0, vmax])
+                                ax.tick_params(labelleft='off') 
+                            
+                            if not 'cor' in c:
+                            
+                                # separately per subject:
+                                for i in range(len(subjects)):
+                                    if tl  == 'stim':
+                                        ax_s = fig_s.add_subplot(np.ceil(len(subjects)/4.0),8,plot_nr_stim)
+                                    elif tl  == 'resp':
+                                        ax_s = fig_s.add_subplot(np.ceil(len(subjects)/4.0),8,plot_nr_resp)
+                                    cax_s = ax_s.pcolormesh(times[time_ind], freqs, X[i,:,:], vmin=-15, vmax=15, cmap=cmap)
+                                    ax_s.axvline(0, ls='--', lw=0.75, color='black',)
+                                    if tl  == 'stim':
+                                        ax_s.axvline(1, ls='--', lw=0.75, color='black',)
+                                    ax_s.set_title('S{}'.format(subjects[i][-2:]))
+                                    ax_s.set_xlabel(xlabel)
+                                    ax_s.set_ylabel('Frequency (Hz)')
+                                    if tl  == 'stim':
+                                        plot_nr_stim += 2
+                                    elif tl  == 'resp':
+                                        plot_nr_resp += 2
+                        
+                        fig.tight_layout()
+                        fig.savefig(os.path.join(fig_folder, 'sensor_level', '{}_{}_{}_{}.pdf'.format(sens, n, c, 0)))
+                        
+                        fig_s.tight_layout()
+                        fig_s.savefig(os.path.join(fig_folder, 'sensor_level', 'subjects', '{}_{}_{}.png'.format(sens, n, c)))
