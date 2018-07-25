@@ -73,10 +73,10 @@ def do_source_recon(subj, njobs=4):
             
             # load labels:
             labels = sr.get_labels(subject=subj, filters=['*wang*.label', '*JWG*.label'], annotations=['HCPMMP1'] )
-            labels = sr.labels_exclude(labels=labels, exclude=['wang2015atlas.IPS4', 'wang2015atlas.IPS5', 
+            labels = sr.labels_exclude(labels=labels, exclude_filters=['wang2015atlas.IPS4', 'wang2015atlas.IPS5', 
                                                             'wang2015atlas.SPL', 'JWG_lat_Unknown'])
-            labels = sr.labels_remove_overlap(labels, priority=['wang', 'JWG'])
-            
+            labels = sr.labels_remove_overlap(labels=labels, priority_filters=['wang', 'JWG'])
+
             # load epochs:
             epochs_stim = mne.read_epochs(epochs_filename_stim)
             epochs_stim = epochs_stim.pick_channels([x for x in epochs_stim.ch_names if x.startswith('M')])
@@ -154,5 +154,5 @@ if __name__ == "__main__":
     # problem with jw14
     for subj in subjects:
         # get_glasser_labels(subj)
-        do_source_recon(subj, njobs=10)
+        do_source_recon(subj, njobs=24)
                
