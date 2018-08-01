@@ -18,6 +18,7 @@ import pymeg
 from pymeg import preprocessing as prep
 from pymeg import tfr as tfr
 from pymeg import atlas_glasser
+from pymeg import contrast_tfr
 
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
@@ -44,35 +45,14 @@ data_folder = 'Z:\\JW\\data'
 fig_folder = 'Z:\\JW\\figures'
 # data_folder = '/home/jwdegee/degee/MEG/data/'
 # fig_folder = '/home/jwdegee/degee/MEG/figures/'
-tfr_params = tfr_params = json.load(open('tfr_params.json'))
-channels = list(pd.read_json("channels.json")[0])
-foi = list(np.arange(4,162,2))
 
-def load_tfr_data(subj, session, timelock):
-    
-    tfr_data_lf_filenames = glob.glob(os.path.join(data_folder, "source_level", "lcmv_{}_{}_{}_{}*-source.hdf".format(subj, session, timelock, 'LF')))
-    tfr_data_hf_filenames = glob.glob(os.path.join(data_folder, "source_level", "lcmv_{}_{}_{}_{}*-source.hdf".format(subj, session, timelock, 'HF')))
-    
-    print(tfr_data_lf_filenames)
-    print(tfr_data_hf_filenames)
+def load_meta_data(subj, session, timelock, data_folder):
 
-    tfr_data = pd.concat((pd.concat([pd.read_hdf(f) for f in tfr_data_lf_filenames], axis=0), 
-                                pd.concat([pd.read_hdf(f) for f in tfr_data_hf_filenames], axis=0)))
-    print('load complete')
-
-    # convert TFR data to pivot table:
-    tfr_data = pd.pivot_table(tfr_data.reset_index(), values=tfr_data.columns, index=['trial', 'est_val'], columns='time').stack(-2)
-    tfr_data.index.names = ['trial', 'freq', 'channel']
-    print('pivot complete')
-
-    return tfr_data
-
-def load_meta_data(subj, session, timelock):
-
+    # load:
     meta_data_filename = os.path.join(data_folder, "epochs", subj, session, '{}-meta.hdf'.format(timelock))
     meta_data = pymeg.preprocessing.load_meta([meta_data_filename])[0]
 
-    # fix meta data:
+    # add columns:
     meta_data["all"] = 1
     meta_data["left"] = (meta_data["resp_meg"] < 0).astype(int)
     meta_data["right"] = (meta_data["resp_meg"] > 0).astype(int)
@@ -84,84 +64,44 @@ def load_meta_data(subj, session, timelock):
     meta_data["right"] = (meta_data["resp_meg"] > 0).astype(int)
     meta_data["pupil_h"] = (meta_data["pupil_lp_d"] >= np.percentile(meta_data["pupil_lp_d"], 60)).astype(int)
     meta_data["pupil_l"] = (meta_data["pupil_lp_d"] <= np.percentile(meta_data["pupil_lp_d"], 40)).astype(int)
-
     return meta_data
 
-def baseline_per_sensor_get(tfr, baseline=(-0.4, 0)):
-    '''
-    Get average baseline
-    '''
-    time = tfr.columns.get_level_values('time').values.astype(float)
-    id_base =  (time > baseline[0]) & (time < baseline[1])
-    base = tfr.loc[:, id_base].groupby(['freq', 'channel']).mean().mean(axis=1)  # This should be len(nr_freqs * nr_hannels)
-    return base
-   
-def baseline_per_sensor_apply(tfr, baseline):
-    '''
-    Baseline correction by dividing by average baseline
-    '''
-    def div(x):
-        bval = float(baseline.loc[baseline.index.isin([x.index.get_level_values('freq').values[0]], level='freq') & 
-                                  baseline.index.isin([x.index.get_level_values('channel').values[0]], level='channel')])
-        return (x - bval) / bval * 100
-    return tfr.groupby(['freq', 'channel']).apply(div)
+def compute_contrasts(subj, sessions, contrasts, contrast_names, weights, hemis, baseline_time=(-0.25, -0.15), n_jobs=8):
 
-def make_tfr_contrasts(tfr_data, tfr_data_to_baseline, meta_data, area, condition):
-
-    condition_ind = meta_data.loc[meta_data[condition]==1, "hash"]
-
-    # apply condition ind, collapse across trials, and get baseline::
-    tfr_data_to_baseline = tfr_data_to_baseline.loc[tfr_data_to_baseline.index.isin(condition_ind, level='trial') & \
-                                    tfr_data_to_baseline.index.isin([area], level='channel'),:].groupby(['freq', 'channel']).mean()
-    baseline = baseline_per_sensor_get(tfr_data_to_baseline, baseline=(-0.25, -0.15))
-        
-    # apply condition ind, and collapse across trials:
-    tfr_data_condition = tfr_data.loc[tfr_data.index.isin(condition_ind, level='trial') & \
-                                    tfr_data.index.isin([area], level='channel'),:].groupby(['freq', 'channel']).mean()
-
-    # apply baseline, and collapse across sensors:
-    tfr_data_condition = baseline_per_sensor_apply(tfr_data_condition, baseline=baseline).groupby(['freq']).mean()
-        
-    return tfr_data_condition
-
-@memory.cache
-def load_tfr_contrast(subj, sessions, timelock, areas, conditions):
-
-    tfr_conditions = []
-
+    tfrs_stim = []
+    tfrs_resp = []
     for session in sessions:
-        print(session)
+        with contrast_tfr.Cache() as cache:
+            for timelock in ['stimlock', 'resplock']:
+                for contrast, contrast_name, weight, hemi in zip(contrasts, contrast_names, weights, hemis):
+                    data_globstring = os.path.join(data_folder, "source_level", "lcmv_{}_{}_{}_*-source.hdf".format(subj, session, timelock,))
+                    base_globstring = os.path.join(data_folder, "source_level", "lcmv_{}_{}_{}_*-source.hdf".format(subj, session, 'stimlock',))
+                    meta_data = load_meta_data(subj, session, timelock, data_folder)
+                    tfr = contrast_tfr.compute_contrast(contrast, weight, hemi, data_globstring, base_globstring, 
+                                                            meta_data, baseline_time, n_jobs=n_jobs, cache=cache)
+                    tfr['subj'] = subj
+                    tfr['session'] = session
+                    tfr['contrast'] = contrast_name
+                    tfr = tfr.set_index(['cluster', 'subj', 'session', 'contrast'], append=True, inplace=False)
+                    tfr = tfr.reorder_levels(['subj', 'session', 'cluster', 'contrast', 'freq'])
+                    if timelock == 'stimlock':
+                        tfrs_stim.append(tfr)
+                    elif timelock == 'resplock':
+                        tfrs_resp.append(tfr)
+    tfrs_stim = pd.concat(tfrs_stim)
+    tfrs_resp = pd.concat(tfrs_resp)
 
-        try: # some subjects have only one session...
+    # mean across sessions:
+    tfrs_stim = tfrs_stim.groupby(['subj', 'cluster', 'contrast', 'freq']).mean()
+    tfrs_resp = tfrs_resp.groupby(['subj', 'cluster', 'contrast', 'freq']).mean()
 
-            # load data:
-            tfr_data = load_tfr_data(subj, session, timelock)
-            meta_data = load_meta_data(subj, session, timelock)
-            
-            # data to baseline:
-            if timelock == 'resplock':
-                tfr_data_to_baseline = load_tfr_data(subj, session, 'stimlock')
-            else:
-                tfr_data_to_baseline = tfr_data
-            
-            # compute contrasts:
-            for area in areas:
-                for condition in conditions:
+    # save:
+    tfrs_stim.to_hdf(os.path.join(data_folder, 'source_level', 'contrasts', 'tfr_contrasts_stimlock_{}.hdf'.format(subj)), 'tfr')
+    tfrs_resp.to_hdf(os.path.join(data_folder, 'source_level', 'contrasts', 'tfr_contrasts_resplock_{}.hdf'.format(subj)), 'tfr')
 
-                    print(area)
-                    print(condition)
-                    tfr_data_condition = make_tfr_contrasts(tfr_data, tfr_data_to_baseline, meta_data, area, condition)
-                    tfr_data_condition['subj'] = subj
-                    tfr_data_condition['session'] = session
-                    tfr_data_condition['area'] = area
-                    tfr_data_condition['condition'] = condition
-                    tfr_data_condition = tfr_data_condition.set_index(['subj', 'session', 'area', 'condition',], append=True, inplace=False)
-                    tfr_data_condition = tfr_data_condition.reorder_levels(['subj', 'session', 'area', 'condition', 'freq'])
-                    tfr_conditions.append(tfr_data_condition)
-        except:
-            pass
-    tfr_condition = pd.concat(tfr_conditions)
-    return tfr_condition
+def load_contrasts(subj, timelock):
+    tfr = pd.read_hdf(os.path.join(data_folder, 'source_level', 'contrasts', 'tfr_contrasts_{}_{}.hdf'.format(timelock, subj)))
+    return tfr
 
 def plot_tfr(tfr, time_cutoff, vmin, vmax, tl, cluster_correct=False, threshold=0.05, ax=None):
 
@@ -183,7 +123,7 @@ def plot_tfr(tfr, time_cutoff, vmin, vmax, tl, cluster_correct=False, threshold=
         
     # cluster stats:
     if cluster_correct:
-        if tl  == 'stim':
+        if tl  == 'stimlock':
             test_data = X[:,:,times[time_ind]>0]
             times_test_data = times[time_ind][times[time_ind]>0]
         else:
@@ -198,124 +138,85 @@ def plot_tfr(tfr, time_cutoff, vmin, vmax, tl, cluster_correct=False, threshold=
             pass
 
     ax.axvline(0, ls='--', lw=0.75, color='black',)
-    
-    if tl == 'stim':
-        ax.set_xlabel('Time from stimulus (s)')
-        ax.axvline(-0.25, ls=':', lw=0.75, color='black',)
-        ax.axvline(-0.15, ls=':', lw=0.75, color='black',)
-        ax.set_ylabel('Frequency (Hz)')
-        # ax.set_title('{} contrast'.format(c))
-    elif tl == 'resp':
-        ax.set_xlabel('Time from report (s)')
-        # ax.set_title('N = {}'.format(len(subjects)))
-        ax.tick_params(labelleft='off')
-        plt.colorbar(cax, ticks=[vmin, 0, vmax])
+    plt.colorbar(cax, ticks=[vmin, 0, vmax])
 
     return ax
 
 if __name__ == '__main__':
     
+    compute = True
+    plot = False
+
     # subjects:
     subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
-    subjects = ['jw01', 'jw02', 'jw03', 'jw05', ]
-    
-    # areas and clusters:
+    # subjects = ['jw01', 'jw02', 'jw03', 'jw05']
+    subjects = ['jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16',]
+
+    # sessions:
+    sessions = ['A', 'B']
+
+    # get clusters:
     all_clusters, visual_field_clusters, glasser_clusters, jwg_clusters = atlas_glasser.get_clusters()
-    areas = [item for sublist in [all_clusters[k] for k in all_clusters.keys()] for item in sublist]
 
-    # contrasts:
-    contrasts = {
-                'all' : ['all'], 
-                'choice': ['hit', 'fa', 'miss', 'cr'],
-                'hand' : ['left', 'right'],
-                'pupil': ['pupil_h', 'pupil_l'],
-                }
-    conditions = [item for sublist in [contrasts[k] for k in contrasts.keys()] for item in sublist]
-    conditions = ['all', 'hit', 'fa', 'miss', 'cr', 'left', 'right', 'pupil_h', 'pupil_l']
+    # define contrasts:
+    contrasts = [['all'], ['hit', 'fa', 'miss', 'cr'], ['left', 'right'], ['pupil_h', 'pupil_l']]
+    contrast_names = ['all', 'choice', 'hand', 'pupil']
+    weights = [[1], [1,1,-1,-1], [1,-1], [1,-1]]
+    hemis = ['avg', 'avg', 'rh_is_ipsi', 'avg']
+
+    # compute contrasts:
+    if compute:
+        for subj in subjects:
+            compute_contrasts(subj, sessions, contrasts, contrast_names, weights, hemis)
     
-    # load for all subjects:    
-    tfr_conditions_stim = []
-    tfr_conditions_resp = []
-    for subj in subjects:
-        tfr_conditions_stim.append(load_tfr_contrast(subj, ['A','B'], 'stimlock', areas, conditions))
-        tfr_conditions_resp.append(load_tfr_contrast(subj, ['A','B'], 'resplock', areas, conditions))
-    tfr_conditions_stim = pd.concat(tfr_conditions_stim)
-    tfr_conditions_resp = pd.concat(tfr_conditions_resp)
+    # plot:
+    if plot:
+        for timelock in ['stimlock', 'resplock']:
+            tfrs = pd.concat([load_contrasts(subj, timelock) for subj in subjects])
+            for contrast_name in contrast_names:
+                for cluster in all_clusters.keys():
 
-    # mean across sessions:
-    tfr_conditions_stim = tfr_conditions_stim.groupby(['subj', 'area', 'condition', 'freq']).mean()
-    tfr_conditions_resp = tfr_conditions_resp.groupby(['subj', 'area', 'condition', 'freq']).mean()
+                    # tfr to plot:
+                    tfr = tfrs.loc[tfrs.index.isin([cluster], level='cluster') & 
+                                        tfrs.index.isin([contrast_name], level='contrast')]
+
+                    # time:
+                    if timelock  == 'stimlock':
+                        time_cutoff = (-0.35, 1.3)
+                        xlabel = 'Time from stimulus (s)'
+                    if timelock  == 'resplock':
+                        time_cutoff = (-0.7, 0.2)
+                        xlabel = 'Time from response (s)'
+
+                    # vmin vmax:
+                    if contrast_name == 'all':
+                        vmin, vmax = (-15, 15)
+                    else:
+                        vmin, vmax = (-10, 10)
+
+                    fig = plt.figure(figsize=(2,2))
+                    ax = fig.add_subplot(111)
+                    plot_tfr(tfr, time_cutoff, vmin, vmax, timelock, 
+                                cluster_correct=False, threshold=0.05, ax=ax)
+                    ax.set_title('{} contrast (N={})'.format(contrast_name, len(subjects)))
+                    ax.set_xlabel(xlabel)
+                    ax.set_ylabel('Frequency (Hz)')
+                    if timelock == 'stimlock':
+                        ax.axvline(-0.25, ls=':', lw=0.75, color='black',)
+                        ax.axvline(-0.15, ls=':', lw=0.75, color='black',)
+                    elif timelock == 'resplock':
+                        ax.tick_params(labelleft='off')
+                    fig.tight_layout()
+                    fig.savefig(os.path.join(fig_folder, 'source_level', '{}_{}_{}.pdf'.format(cluster, contrast_name, timelock)))
+
+
+
+
+
     
-    # all_clusters = {'HCPMMP1_premotor': ('lh.HCPMMP1_08_premotor-lh', 'rh.HCPMMP1_08_premotor-rh',),}
-    # for cluster in all_clusters.keys():
-    # for cluster in visual_field_clusters.keys():
-    for cluster in jwg_clusters.keys():
-    # for cluster in glasser_clusters.keys():
-    
-        print(cluster)
-        for c in contrasts.keys():
-            print(c)
-            if c == 'hand':
-                lat = True
-            else:
-                lat = False
-            
-            fig = plt.figure(figsize=(4,2))
-            gs = matplotlib.gridspec.GridSpec(1, 2, width_ratios=[1.25, 1])
-            
-            for i, tl in enumerate(['stim', 'resp',]):
 
-                if tl == 'stim':
-                    tfr_condition = tfr_conditions_stim.copy()
-                elif tl == 'resp':
-                    tfr_condition = tfr_conditions_resp.copy()
 
-                if lat:
-                    tfrs_rh = [pd.concat([tfr_condition.loc[(tfr_condition.index.isin([area], level='area')) &\
-                                                            (tfr_condition.index.isin([condition], level='condition'))]\
-                                        for area in all_clusters[cluster] if 'rh' in area]).groupby(['subj', 'freq']).mean()\
-                                        for condition in contrasts[c]]                
-                    tfrs_lh = [pd.concat([tfr_condition.loc[(tfr_condition.index.isin([area], level='area')) &\
-                                                            (tfr_condition.index.isin([condition], level='condition'))]\
-                                        for area in all_clusters[cluster] if 'lh' in area]).groupby(['subj', 'freq']).mean()\
-                                        for condition in contrasts[c]]
-                    tfrs = [tfrs_rh[i] - tfrs_lh[i] for i in range(len(tfrs_lh))]
 
-                else:
-                    tfrs = [pd.concat([tfr_condition.loc[(tfr_condition.index.isin([area], level='area')) &\
-                                                         (tfr_condition.index.isin([condition], level='condition'))]\
-                                        for area in all_clusters[cluster]]).groupby(['subj', 'freq']).mean()\
-                                        for condition in contrasts[c]]
 
-                # create contrasts:
-                if c == 'all':
-                    tfr = tfrs[0]
-                if c == 'stimulus':
-                    tfr = (tfrs[0]+tfrs[2]) - (tfrs[1]+tfrs[3])   
-                if c == 'choice':
-                    tfr = (tfrs[0]+tfrs[1]) - (tfrs[2]+tfrs[3])    
-                if c == 'hand':
-                    tfr = tfrs[0]-tfrs[1] 
-                if c == 'pupil':
-                    tfr = tfrs[0]-tfrs[1]
 
-                # time:
-                if tl  == 'stim':
-                    time_cutoff = (-0.35, 1.3)
-                    xlabel = 'Time from stimulus (s)'
-                if tl  == 'resp':
-                    time_cutoff = (-0.7, 0.2)
-                    xlabel = 'Time from response (s)'
 
-                # vmin vmax:
-                if c == 'all':
-                    vmin, vmax = (-15, 15)
-                else:
-                    vmin, vmax = (-10, 10)
-
-                # plot:
-                ax = fig.add_subplot(gs[i])
-                plot_tfr(tfr, time_cutoff, vmin, vmax, tl=tl, cluster_correct=False, threshold=0.05, ax=ax)
-
-            fig.tight_layout()
-            fig.savefig(os.path.join(fig_folder, 'source_level', '{}_{}_{}_{}.pdf'.format(cluster, 0, c, int(lat))))

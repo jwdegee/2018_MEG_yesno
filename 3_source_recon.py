@@ -45,32 +45,25 @@ def get_glasser_labels(subj, subjects_dir='/home/jw/share/data/fs_subjects/'):
     subjects = [subj]
     gl.get_hcp(subjects_dir)
     gl.get_hcp_annotation(subjects_dir, subj)
-    # gl.get_hcp_labels(subjects_dir, subjects)    
-
+    
 def get_broadband_estimator():
     return ('BB', [-1], lambda x: x[:, np.newaxis, :])
 
-def do_source_recon(subj, njobs=4):
-
-    for session in ["A", "B"]:
+def do_source_recon(subj, session, njobs=4):
         
-        runs = sorted([run.split('/')[-1] for run in glob.glob(os.path.join(data_folder, "raw", subj, session, "meg", "*.ds"))])
-        
-        try:
-            center = int(np.floor(len(runs) / 2.0))
-            raw_filename = os.path.join(data_folder, "raw", subj, session, "meg", runs[center])
-        except:
-            pass
-
         epochs_filename_stim = os.path.join(data_folder, "epochs", subj, session, '{}-epo.fif.gz'.format('stimlock'))
         epochs_filename_resp = os.path.join(data_folder, "epochs", subj, session, '{}-epo.fif.gz'.format('resplock'))
         trans_filename = os.path.join(data_folder, "transformation_matrix", '{}_{}-trans.fif'.format(subj, session))
 
         if os.path.isfile(epochs_filename_stim):
             
+            runs = sorted([run.split('/')[-1] for run in glob.glob(os.path.join(data_folder, "raw", subj, session, "meg", "*.ds"))])
+            center = int(np.floor(len(runs) / 2.0))
+            raw_filename = os.path.join(data_folder, "raw", subj, session, "meg", runs[center])
+            
             # # make transformation matrix:
             # sr.make_trans(subj, raw_filename, epochs_filename, trans_filename)
-            
+
             # load labels:
             labels = sr.get_labels(subject=subj, filters=['*wang*.label', '*JWG*.label'], annotations=['HCPMMP1'] )
             labels = sr.labels_exclude(labels=labels, exclude_filters=['wang2015atlas.IPS4', 'wang2015atlas.IPS5', 
@@ -80,7 +73,6 @@ def do_source_recon(subj, njobs=4):
             # load epochs:
             epochs_stim = mne.read_epochs(epochs_filename_stim)
             epochs_stim = epochs_stim.pick_channels([x for x in epochs_stim.ch_names if x.startswith('M')])
-
             epochs_resp = mne.read_epochs(epochs_filename_resp)
             epochs_resp = epochs_resp.pick_channels([x for x in epochs_resp.ch_names if x.startswith('M')])
             
@@ -123,8 +115,6 @@ def do_source_recon(subj, njobs=4):
             # do source level analysis:
             for tl, epochs in zip(['stimlock', 'resplock'], [epochs_stim, epochs_resp]):
                 for signal_type in ['LF', 'HF']:
-                # for signal_type in ['LF']:
-                    
                     print(signal_type)
 
                     # events:
@@ -132,7 +122,8 @@ def do_source_recon(subj, njobs=4):
                     data = []
                     filters = lcmv.setup_filters(epochs.info, forward, data_cov,
                                           None, labels, njobs=njobs)
-
+                    
+                    # in chunks:
                     chunks = 100
                     for i in range(0, len(events), chunks):
                         filename = os.path.join(data_folder, "source_level", 'lcmv_{}_{}_{}_{}_{}-source.hdf'.\
@@ -149,10 +140,10 @@ def do_source_recon(subj, njobs=4):
 
 if __name__ == "__main__":
 	                
-    subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
-    # subjects = ['jw14', 'jw15',]
-    # problem with jw14
+    # subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
+    subjects = ['jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
     for subj in subjects:
-        # get_glasser_labels(subj)
-        do_source_recon(subj, njobs=24)
+    	# get_glasser_labels(subj)
+        for session in ['A', 'B']:
+        	do_source_recon(subj, session, njobs=24)
                
