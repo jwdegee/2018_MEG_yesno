@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import json
 import joblib
+import argparse
 
 from IPython import embed as shell
 
@@ -34,12 +35,10 @@ sns.set(style='ticks', font='Arial', font_scale=1, rc={
     'ytick.color':'Black',} )
 sns.plotting_context()
 
-data_folder = 'Z:\\JW\\data'
-sr.set_fs_subjects_dir('Z:\\JW\\data\\fs_subjects')
-# data_folder = '/home/jw/share/data/'
-# sr.set_fs_subjects_dir('/home/jw/share/data/fs_subjects/')
+data_folder = '/media/external3/JW/meg/data/'
+sr.set_fs_subjects_dir('/media/external3/JW/meg/data/fs_subjects/')
 
-def get_glasser_labels(subj, subjects_dir='/home/jw/share/data/fs_subjects/'):
+def get_glasser_labels(subj, subjects_dir='/media/external3/JW/meg/data/fs_subjects/'):
 
     from pymeg import atlas_glasser as gl
     subjects = [subj]
@@ -69,6 +68,7 @@ def do_source_recon(subj, session, njobs=4):
             labels = sr.labels_exclude(labels=labels, exclude_filters=['wang2015atlas.IPS4', 'wang2015atlas.IPS5', 
                                                             'wang2015atlas.SPL', 'JWG_lat_Unknown'])
             labels = sr.labels_remove_overlap(labels=labels, priority_filters=['wang', 'JWG'])
+            print(labels)
 
             # load epochs:
             epochs_stim = mne.read_epochs(epochs_filename_stim)
@@ -137,13 +137,23 @@ def do_source_recon(subj, session, njobs=4):
                             njobs=njobs)
                         M.to_hdf(filename, 'epochs')
 
+                        del M
 
-if __name__ == "__main__":
-	                
-    # subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
-    subjects = ['jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
-    for subj in subjects:
-    	# get_glasser_labels(subj)
-        for session in ['A', 'B']:
-        	do_source_recon(subj, session, njobs=24)
-               
+
+# if __name__ == "__main__":
+  
+# parser = argparse.ArgumentParser()
+# parser.add_argument("subj", help='subject to run')
+# args = parser.parse_args()
+# params = vars(args)
+# for session in ['A', 'B']:
+#     do_source_recon(params['subj'], session, njobs=12)
+
+# subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13',]
+subjects = ['jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
+for subj in subjects:
+# get_glasser_labels(subj)
+    for session in ['A', 'B']:
+        do_source_recon(subj, session, njobs=12)
+        sr.clear_cache()
+            

@@ -32,14 +32,13 @@ sns.set(style='ticks', font='Arial', font_scale=1, rc={
     'ytick.color':'Black',} )
 sns.plotting_context()
 
-# data_folder = '/home/jwdegee/degee/MEG/data/'
-data_folder = '/home/jw/share/data/'
+data_folder = '/media/external3/JW/meg/data/'
 tfr_params = json.load(open('tfr_params.json'))
 channels = list(pd.read_json("channels.json")[0])
 
-# subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
+subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14', 'jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
 # subjects = ['jw01', 'jw02', 'jw03', 'jw05', 'jw07', 'jw08', 'jw09', 'jw10', 'jw11', 'jw12', 'jw13', 'jw14',]
-subjects = ['jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
+# subjects = ['jw15', 'jw16', 'jw17', 'jw18', 'jw19', 'jw20', 'jw21', 'jw22', 'jw23', 'jw24', 'jw30']
 
 def get_meta(raw, mapping, run_nr):
     meta, timing = pymeg.preprocessing.get_meta(raw, mapping, {}, 8, 8)
@@ -149,7 +148,7 @@ for subj in subjects:
             
             # concat meta:
             mb = pd.concat((mb, df_pupil), axis=1)
-            
+
             # artefact rejection:
             r, ants, artdef = pymeg.preprocessing.preprocess_block(raw, blinks=False)
             
@@ -162,10 +161,14 @@ for subj in subjects:
             
             # epochs:
             stimlock_meta, stimlock = pymeg.preprocessing.get_epoch(r, mb, tb, event='stim_meg_time', 
-                                                                    epoch_time=(-0.5, 1.5), epoch_label='hash')
+                                                                    epoch_time=(-0.5, 1.3), 
+                                                                    reject_time=(-0.1, 1.1),
+                                                                    epoch_label='hash')
             stimlock_meta = stimlock_meta.T.drop_duplicates().T
             resplock_meta, resplock = pymeg.preprocessing.get_epoch(r, mb, tb, event='resp_meg_time',
-                                                                    epoch_time=(-0.9, 0.4), epoch_label='hash')
+                                                                    epoch_time=(-0.6, 0.3),
+                                                                    reject_time=(-0.4, 0),
+                                                                    epoch_label='hash')
             resplock_meta = resplock_meta.T.drop_duplicates().T
             
             # downsample epochs
